@@ -38,6 +38,7 @@ pub struct WebEventSink {
     resume_game_time: Option<Function>,
     set_custom_variable: Option<Function>,
     current_phase: Function,
+    current_split_index: Option<Function>,
 }
 
 #[wasm_bindgen]
@@ -64,6 +65,7 @@ impl WebEventSink {
             resume_game_time: get_func(&obj, "resumeGameTime"),
             set_custom_variable: get_func(&obj, "setCustomVariable"),
             current_phase: get_func(&obj, "currentPhase").unwrap(),
+            current_split_index: get_func(&obj, "currentSplitIndex"),
             obj,
         }
     }
@@ -214,6 +216,19 @@ impl TimerQuery for WebEventSink {
             2 => TimerPhase::Paused,
             3 => TimerPhase::Ended,
             _ => panic!("Unknown TimerPhase"),
+        }
+    }
+    fn current_split_index(&self) -> Option<usize> {
+        let i = self
+            .current_split_index
+            .as_ref()?
+            .call0(&self.obj)
+            .ok()?
+            .as_f64()?;
+        if i >= 0.0 {
+            Some(i as usize)
+        } else {
+            None
         }
     }
 }
