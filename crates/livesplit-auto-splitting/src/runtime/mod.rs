@@ -163,6 +163,9 @@ pub struct Config<'a> {
     /// the user. It may not contain all the settings that are registered as
     /// settings widgets, because the user may not have modified them yet.
     pub settings_map: Option<settings::Map>,
+    /// The splits settings maps are used to store the settings for each
+    /// split.
+    pub split_settings_maps: Vec<settings::Map>,
     /// The auto splitter itself may be a runtime that wants to load a script
     /// from a file to interpret. This is the path to that script. It is
     /// provided to the auto splitter as the `SCRIPT_PATH` environment variable.
@@ -185,6 +188,7 @@ impl Default for Config<'_> {
     fn default() -> Self {
         Self {
             settings_map: None,
+            split_settings_maps: Vec::new(),
             interpreter_script_path: None,
             debug_info: false,
             optimize: true,
@@ -195,6 +199,7 @@ impl Default for Config<'_> {
 
 struct SharedData {
     settings_map: Mutex<settings::Map>,
+    split_settings_maps: Mutex<Vec<settings::Map>>,
     tick_rate: Mutex<Duration>,
 }
 
@@ -323,6 +328,7 @@ impl<T: Timer> Runtime<T> {
 
         let shared_data = Arc::new(SharedData {
             settings_map: Mutex::new(config.settings_map.unwrap_or_default()),
+            split_settings_maps: Mutex::new(config.split_settings_maps),
             tick_rate: Mutex::new(Duration::new(0, 1_000_000_000 / 120)),
         });
 

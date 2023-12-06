@@ -320,6 +320,9 @@ extern "C" {
     /// need to free them. Returns `true` if the map was stored successfully.
     /// Returns `false` if the map was changed in the meantime.
     pub fn settings_map_store_if_unchanged(old_map: SettingsMap, new_map: SettingsMap) -> bool;
+    /// Loads a copy of the current split's settings map.
+    /// You own the settings map and are responsible for freeing it.
+    pub fn current_split_settings_map_load() -> SettingsMap;
     /// Copies a settings map. No changes inside the copy affect the original
     /// settings map. You own the new settings map and are responsible for
     /// freeing it.

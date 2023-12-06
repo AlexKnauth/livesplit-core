@@ -98,6 +98,18 @@ pub fn bind<T: Timer>(linker: &mut Linker<Context<T>>) -> Result<(), CreationErr
             source,
             name: "settings_map_store_if_unchanged",
         })?
+        .func_wrap("env", "current_split_settings_map_load", {
+            |mut caller: Caller<'_, Context<T>>| {
+                let ctx = caller.data_mut();
+                let split_index = ctx.timer.current_split_index().unwrap_or(0);
+                let settings_map = ctx.shared_data.split_settings_maps.lock().unwrap()[split_index].clone();
+                ctx.settings_maps.insert(settings_map).data().as_ffi()
+            }
+        })
+        .map_err(|source| CreationError::LinkFunction {
+            source,
+            name: "current_split_settings_map_load",
+        })?
         .func_wrap("env", "settings_map_copy", {
             |mut caller: Caller<'_, Context<T>>, settings_map: u64| {
                 let ctx = caller.data_mut();
