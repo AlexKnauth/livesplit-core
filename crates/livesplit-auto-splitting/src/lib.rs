@@ -297,6 +297,16 @@
 //!         tooltip_ptr: *const u8,
 //!         tooltip_len: usize,
 //!     );
+//!     /// Adds a new boolean setting that the user can modify differently for each split.
+//!     /// The key is used to store the setting in each of the split settings maps.
+//!     /// The pointers need to point to valid UTF-8 encoded text with the respective given length.
+//!     pub fn user_split_settings_add_bool(
+//!         key_ptr: *const u8,
+//!         key_len: usize,
+//!         description_ptr: *const u8,
+//!         description_len: usize,
+//!         default_value: bool,
+//!     );
 //!
 //!     /// Creates a new settings map. You own the settings map and are responsible
 //!     /// for freeing it.

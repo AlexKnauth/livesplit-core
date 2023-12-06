@@ -80,6 +80,7 @@ pub struct Context<T: Timer> {
     settings_lists: SlotMap<SettingsListKey, settings::List>,
     setting_values: SlotMap<SettingValueKey, settings::Value>,
     settings_widgets: Arc<Vec<settings::Widget>>,
+    split_settings_widgets: Arc<Vec<settings::Widget>>,
     shared_data: Arc<SharedData>,
     timer: T,
     memory: Option<Memory>,
@@ -325,6 +326,7 @@ impl<T: Timer> Runtime<T> {
             .map_err(|source| CreationError::ModuleLoading { source })?;
 
         let settings_widgets = Arc::new(Vec::new());
+        let split_settings_widgets = Arc::new(Vec::new());
 
         let shared_data = Arc::new(SharedData {
             settings_map: Mutex::new(config.settings_map.unwrap_or_default()),
@@ -340,6 +342,7 @@ impl<T: Timer> Runtime<T> {
                 settings_lists: SlotMap::with_key(),
                 setting_values: SlotMap::with_key(),
                 settings_widgets: settings_widgets.clone(),
+                split_settings_widgets: split_settings_widgets.clone(),
                 shared_data: shared_data.clone(),
                 timer,
                 memory: None,

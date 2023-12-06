@@ -145,6 +145,30 @@ pub fn bind<T: Timer>(linker: &mut Linker<Context<T>>) -> Result<(), CreationErr
         .map_err(|source| CreationError::LinkFunction {
             source,
             name: "user_settings_set_tooltip",
+        })?
+        .func_wrap("env", "user_split_settings_add_bool", {
+            |mut caller: Caller<'_, Context<T>>,
+             key_ptr: u32,
+             key_len: u32,
+             description_ptr: u32,
+             description_len: u32,
+             default_value: u32| {
+                let (memory, context) = memory_and_context(&mut caller);
+                let key = Arc::<str>::from(get_str(memory, key_ptr, key_len)?);
+                let description = get_str(memory, description_ptr, description_len)?.into();
+                let default_value = default_value != 0;
+                Arc::make_mut(&mut context.split_settings_widgets).push(settings::Widget {
+                    key,
+                    description,
+                    tooltip: None,
+                    kind: settings::WidgetKind::Bool { default_value },
+                });
+                Ok(())
+            }
+        })
+        .map_err(|source| CreationError::LinkFunction {
+            source,
+            name: "user_split_settings_add_bool",
         })?;
     Ok(())
 }
