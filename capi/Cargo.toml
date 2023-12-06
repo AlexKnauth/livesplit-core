@@ -15,7 +15,7 @@ time = { version = "0.3.4", default-features = false, features = ["formatting"] 
 simdutf8 = { git = "https://github.com/CryZe/simdutf8", branch = "wasm-ub-panic", default-features = false }
 
 wasm-bindgen = { version = "0.2.78", optional = true }
-web-sys = { version = "0.3.28", optional = true }
+web-sys = { version = "0.3.65", optional = true }
 
 [features]
 default = ["image-shrinking"]

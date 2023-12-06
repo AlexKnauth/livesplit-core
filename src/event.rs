@@ -88,6 +88,12 @@ pub trait Sink {
 pub trait TimerQuery {
     /// Returns the current Timer Phase.
     fn current_phase(&self) -> TimerPhase;
+    /// Accesses the index of the split the attempt is currently on. If there's
+    /// no attempt in progress, `None` is returned instead. This returns an
+    /// index that is equal to the amount of segments when the attempt is
+    /// finished, but has not been reset. So you need to be careful when using
+    /// this value for indexing.
+    fn current_split_index(&self) -> Option<usize>;
 }
 
 #[cfg(feature = "std")]
@@ -166,6 +172,9 @@ impl TimerQuery for crate::SharedTimer {
     fn current_phase(&self) -> TimerPhase {
         self.read().unwrap().current_phase()
     }
+    fn current_split_index(&self) -> Option<usize> {
+        self.read().unwrap().current_split_index()
+    }
 }
 
 impl<T: Sink + ?Sized> Sink for Arc<T> {
@@ -241,5 +250,8 @@ impl<T: Sink + ?Sized> Sink for Arc<T> {
 impl<T: TimerQuery + ?Sized> TimerQuery for Arc<T> {
     fn current_phase(&self) -> TimerPhase {
         TimerQuery::current_phase(&**self)
+    }
+    fn current_split_index(&self) -> Option<usize> {
+        TimerQuery::current_split_index(&**self)
     }
 }
