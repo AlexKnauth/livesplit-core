@@ -101,6 +101,8 @@ pub fn bind<T: Timer>(linker: &mut Linker<Context<T>>) -> Result<(), CreationErr
         .func_wrap("env", "current_split_settings_map_load", {
             |mut caller: Caller<'_, Context<T>>| {
                 let ctx = caller.data_mut();
+                // TODO: check length of split_settings_maps and bounds of split_index,
+                //       maybe this should return an option instead
                 let split_index = ctx.timer.current_split_index().unwrap_or(0);
                 let settings_map = ctx.shared_data.split_settings_maps.lock().unwrap()[split_index].clone();
                 ctx.settings_maps.insert(settings_map).data().as_ffi()
