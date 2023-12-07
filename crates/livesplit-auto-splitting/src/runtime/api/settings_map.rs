@@ -49,6 +49,28 @@ pub fn bind<T: Timer>(linker: &mut Linker<Context<T>>) -> Result<(), CreationErr
             source,
             name: "settings_map_load",
         })?
+        .func_wrap("env", "settings_get_legacy_raw_xml", {
+            |mut caller: Caller<'_, Context<T>>, ptr: u32, len_ptr: u32| {
+                let (memory, context) = memory_and_context(&mut caller);
+                let len_bytes = get_arr_mut(memory, len_ptr)?;
+                let len = u32::from_le_bytes(*len_bytes) as usize;
+                let Some(legacy_xml) = context.legacy_xml.clone() else {
+                    *len_bytes = 0u32.to_le_bytes();
+                    return Ok(0u32);
+                };
+                *len_bytes = (legacy_xml.len() as u32).to_le_bytes();
+                if len < legacy_xml.len() {
+                    return Ok(0u32);
+                }
+                let buf = get_slice_mut(memory, ptr, legacy_xml.len() as _)?;
+                buf.copy_from_slice(legacy_xml.as_bytes());
+                Ok(1u32)
+            }
+        })
+        .map_err(|source| CreationError::LinkFunction {
+            source,
+            name: "settings_get_legacy_raw_xml",
+        })?
         .func_wrap("env", "settings_map_store", {
             |mut caller: Caller<'_, Context<T>>, settings_map: u64| {
                 let ctx = caller.data_mut();

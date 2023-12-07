@@ -82,6 +82,7 @@ pub struct Context<T: Timer> {
     settings_widgets: Arc<Vec<settings::Widget>>,
     shared_data: Arc<SharedData>,
     timer: T,
+    legacy_xml: Option<String>,
     memory: Option<Memory>,
     process_list: ProcessList,
     wasi: WasiCtx,
@@ -208,6 +209,13 @@ impl ConfigSettings {
     fn get_map(&self) -> Option<&settings::Map> {
         match self {
             ConfigSettings::Map(map) => Some(map),
+            _ => None,
+        }
+    }
+
+    fn get_legacy_xml(&self) -> Option<&String> {
+        match self {
+            ConfigSettings::LegacyXML(s) => Some(s),
             _ => None,
         }
     }
@@ -356,6 +364,7 @@ impl<T: Timer> Runtime<T> {
                 settings_widgets: settings_widgets.clone(),
                 shared_data: shared_data.clone(),
                 timer,
+                legacy_xml: config.settings.get_legacy_xml().cloned(),
                 memory: None,
                 process_list: ProcessList::new(),
                 wasi: api::wasi::build(config.interpreter_script_path),
