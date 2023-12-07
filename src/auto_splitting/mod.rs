@@ -494,7 +494,7 @@ use crate::{
 };
 pub use livesplit_auto_splitting::settings;
 use livesplit_auto_splitting::{
-    Config, CreationError, InterruptHandle, Runtime as ScriptRuntime, Timer as AutoSplitTimer,
+    Config, ConfigSettings, CreationError, InterruptHandle, Runtime as ScriptRuntime, Timer as AutoSplitTimer,
     TimerState,
 };
 use snafu::Snafu;
@@ -817,7 +817,10 @@ async fn run(
         let mut runtime = loop {
             match receiver.recv().await {
                 Some(Request::LoadScript(script, ret)) => {
-                    match ScriptRuntime::new(&script, Timer(timer.clone()), Config::default()) {
+                    let mut config = Config::default();
+                    config.settings = config_settings(None, &timer);
+
+                    match ScriptRuntime::new(&script, Timer(timer.clone()), config) {
                         Ok(r) => {
                             ret.send(Ok(())).ok();
                             script_path = script;
@@ -863,7 +866,10 @@ async fn run(
             match timeout_at(next_step, receiver.recv()).await {
                 Ok(Some(request)) => match request {
                     Request::LoadScript(script, ret) => {
-                        match ScriptRuntime::new(&script, Timer(timer.clone()), Config::default()) {
+                        let mut config = Config::default();
+                        config.settings = config_settings(Some(runtime.settings_map()), &timer);
+
+                        match ScriptRuntime::new(&script, Timer(timer.clone()), config) {
                             Ok(r) => {
                                 ret.send(Ok(())).ok();
                                 runtime = r;
@@ -883,7 +889,7 @@ async fn run(
                     }
                     Request::ReloadScript(ret) => {
                         let mut config = Config::default();
-                        config.settings_map = Some(runtime.settings_map().clone());
+                        config.settings = config_settings(Some(runtime.settings_map()), &timer);
 
                         match ScriptRuntime::new(&script_path, Timer(timer.clone()), config) {
                             Ok(r) => {
@@ -959,6 +965,21 @@ async fn run(
             }
         }
     }
+}
+
+fn config_settings(map: Option<settings::Map>, timer: &SharedTimer) -> ConfigSettings {
+    if let Some(m) = map {
+        if !m.is_empty() {
+            return ConfigSettings::Map(m.clone());
+        }
+    }
+    if let Ok(t) = timer.read() {
+        let legacy_xml = t.run().auto_splitter_settings();
+        if !legacy_xml.is_empty() {
+            return ConfigSettings::LegacyXML(legacy_xml.to_string());
+        }
+    }
+    ConfigSettings::None
 }
 
 async fn watchdog(

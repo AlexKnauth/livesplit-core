@@ -158,11 +158,8 @@ impl ProcessList {
 /// The configuration to use when creating a new [`Runtime`].
 #[non_exhaustive]
 pub struct Config<'a> {
-    /// The settings map that is used to store the settings of the auto
-    /// splitter. This contains all the settings that are currently modified by
-    /// the user. It may not contain all the settings that are registered as
-    /// settings widgets, because the user may not have modified them yet.
-    pub settings_map: Option<settings::Map>,
+    /// The initial settings to start with.
+    pub settings: ConfigSettings,
     /// The auto splitter itself may be a runtime that wants to load a script
     /// from a file to interpret. This is the path to that script. It is
     /// provided to the auto splitter as the `SCRIPT_PATH` environment variable.
@@ -184,11 +181,34 @@ pub struct Config<'a> {
 impl Default for Config<'_> {
     fn default() -> Self {
         Self {
-            settings_map: None,
+            settings: ConfigSettings::None,
             interpreter_script_path: None,
             debug_info: false,
             optimize: true,
             backtrace_details: true,
+        }
+    }
+}
+
+/// The initial settings to start with.
+pub enum ConfigSettings {
+    /// No settings info to start with.
+    None,
+    /// The settings map that is used to store the settings of the auto
+    /// splitter. This contains all the settings that are currently modified by
+    /// the user. It may not contain all the settings that are registered as
+    /// settings widgets, because the user may not have modified them yet.
+    Map(settings::Map),
+    /// The Auto Splitter Settings that are encoded as XML,
+    /// not yet converted to the settings Map format.
+    LegacyXML(String),
+}
+
+impl ConfigSettings {
+    fn get_map(&self) -> Option<&settings::Map> {
+        match self {
+            ConfigSettings::Map(map) => Some(map),
+            _ => None,
         }
     }
 }
@@ -322,7 +342,7 @@ impl<T: Timer> Runtime<T> {
         let settings_widgets = Arc::new(Vec::new());
 
         let shared_data = Arc::new(SharedData {
-            settings_map: Mutex::new(config.settings_map.unwrap_or_default()),
+            settings_map: Mutex::new(config.settings.get_map().cloned().unwrap_or_default()),
             tick_rate: Mutex::new(Duration::new(0, 1_000_000_000 / 120)),
         });
 

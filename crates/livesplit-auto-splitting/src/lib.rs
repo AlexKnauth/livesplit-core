@@ -505,6 +505,6 @@ pub mod settings;
 mod timer;
 
 pub use process::Process;
-pub use runtime::{Config, CreationError, InterruptHandle, Runtime, RuntimeGuard};
+pub use runtime::{Config, ConfigSettings, CreationError, InterruptHandle, Runtime, RuntimeGuard};
 pub use time;
 pub use timer::{Timer, TimerState};
