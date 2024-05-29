@@ -349,6 +349,25 @@ impl Run {
         &mut self.parsed_auto_splitter_settings
     }
 
+    /// Set the settings map in the parsed auto splitter settings.
+    #[cfg(feature = "auto-splitting")]
+    pub fn set_auto_splitter_settings(
+        &mut self,
+        settings_map: livesplit_auto_splitting::settings::Map,
+    ) {
+        let p = self.parsed_auto_splitter_settings_mut();
+        match p {
+            None => {
+                let mut a = AutoSplitterSettings::default();
+                a.set_custom_settings(settings_map);
+                *p = Some(a);
+            }
+            Some(a) => {
+                a.set_custom_settings(settings_map);
+            }
+        }
+    }
+
     /// Accesses the [`LinkedLayout`] of this `Run`. If a
     /// [`Layout`](crate::Layout) is linked, it is supposed to be loaded to
     /// visualize the `Run`.
