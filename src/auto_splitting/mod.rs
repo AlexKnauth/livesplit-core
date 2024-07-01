@@ -542,7 +542,7 @@
 //! - There is no threading.
 
 use crate::{
-    event::{self, TimerAutoSplitterSettings, TimerQuery},
+    event::{self, TimerQuery},
     platform::Arc,
     timing::TimerPhase,
 };
@@ -599,7 +599,7 @@ impl<T> Drop for Runtime<T> {
     }
 }
 
-impl<T: event::CommandSink + TimerQuery + TimerAutoSplitterSettings + Send + 'static> Default
+impl<T: event::CommandSink + TimerQuery + Send + 'static> Default
     for Runtime<T>
 {
     fn default() -> Self {
@@ -607,7 +607,7 @@ impl<T: event::CommandSink + TimerQuery + TimerAutoSplitterSettings + Send + 'st
     }
 }
 
-impl<T: event::CommandSink + TimerQuery + TimerAutoSplitterSettings + Send + 'static> Runtime<T> {
+impl<T: event::CommandSink + TimerQuery + Send + 'static> Runtime<T> {
     /// Starts the runtime. Doesn't actually load an auto splitter until
     /// [`load`][Runtime::load] is called.
     pub fn new() -> Self {
@@ -668,9 +668,14 @@ impl<T: event::CommandSink + TimerQuery + TimerAutoSplitterSettings + Send + 'st
         compiled_auto_splitter: &CompiledAutoSplitter,
         timer: T,
     ) -> Result<(), Error> {
-        let settings_map = timer.get_auto_splitter_settings();
+        let settings_map = timer
+            .get_timer()
+            .run()
+            .parsed_auto_splitter_settings()
+            .as_ref()
+            .map(|p| p.custom_settings.clone());
         let auto_splitter = compiled_auto_splitter
-            .instantiate(Timer(timer), Some(settings_map), None)
+            .instantiate(Timer(timer), settings_map, None)
             .map_err(|e| Error::LoadFailed { source: e })?;
 
         self.auto_splitter
