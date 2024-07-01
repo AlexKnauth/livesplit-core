@@ -552,7 +552,7 @@ use livesplit_auto_splitting::{
     Timer as AutoSplitTimer, TimerState,
 };
 use snafu::Snafu;
-use std::{cell::RefCell, fmt, fs, io, path::PathBuf, thread, time::Duration};
+use std::{fmt, fs, io, path::PathBuf, sync::RwLock, thread, time::Duration};
 use tokio::{
     runtime,
     sync::watch,
@@ -588,7 +588,7 @@ pub struct Runtime<T> {
     interrupt_receiver: watch::Receiver<Option<InterruptHandle>>,
     auto_splitter: watch::Sender<Option<AutoSplitter<Timer<T>>>>,
     runtime: livesplit_auto_splitting::Runtime,
-    compiled_auto_splitter: RefCell<Option<CompiledAutoSplitter>>,
+    compiled_auto_splitter: RwLock<Option<CompiledAutoSplitter>>,
 }
 
 impl<T> Drop for Runtime<T> {
@@ -645,7 +645,7 @@ impl<T: event::CommandSink + TimerQuery + TimerAutoSplitterSettings + Send + 'st
             auto_splitter: sender,
             // TODO: unwrap?
             runtime: livesplit_auto_splitting::Runtime::new(Config::default()).unwrap(),
-            compiled_auto_splitter: RefCell::new(None),
+            compiled_auto_splitter: RwLock::new(None),
         }
     }
 
@@ -658,7 +658,7 @@ impl<T: event::CommandSink + TimerQuery + TimerAutoSplitterSettings + Send + 'st
             .compile(&data)
             .map_err(|e| Error::LoadFailed { source: e })?;
         self.instantiate(&compiled_auto_splitter, timer)?;
-        *self.compiled_auto_splitter.borrow_mut() = Some(compiled_auto_splitter);
+        *self.compiled_auto_splitter.write().unwrap() = Some(compiled_auto_splitter);
         Ok(())
     }
 
@@ -690,7 +690,7 @@ impl<T: event::CommandSink + TimerQuery + TimerAutoSplitterSettings + Send + 'st
     /// Reloads the auto splitter without re-compiling.
     pub fn reload(&self, timer: T) -> Result<(), Error> {
         self.unload()?;
-        if let Some(compiled_auto_splitter) = self.compiled_auto_splitter.borrow().as_ref() {
+        if let Some(compiled_auto_splitter) = self.compiled_auto_splitter.read().unwrap().as_ref() {
             self.instantiate(compiled_auto_splitter, timer)?;
         }
         Ok(())
