@@ -335,29 +335,28 @@ impl Run {
         &mut self.auto_splitter_settings
     }
 
-    /// Accesses the Auto Splitter Settings.
+    /// Loads a copy of the Auto Splitter Settings as a settings map.
     #[inline]
     #[cfg(feature = "auto-splitting")]
-    pub fn parsed_auto_splitter_settings(&self) -> &Option<AutoSplitterSettings> {
-        &self.parsed_auto_splitter_settings
+    pub fn auto_splitter_settings_map_load(&self) -> Option<livesplit_auto_splitting::settings::Map> {
+        if let Some(p) = &self.parsed_auto_splitter_settings {
+            return Some(p.custom_settings.clone());
+        }
+        None
     }
 
-    /// Accesses the Auto Splitter Settings as mutable.
-    #[inline]
+    /// Stores a settings map into the parsed auto splitter settings.
     #[cfg(feature = "auto-splitting")]
-    pub fn parsed_auto_splitter_settings_mut(&mut self) -> &mut Option<AutoSplitterSettings> {
-        &mut self.parsed_auto_splitter_settings
-    }
-
-    /// Set the settings map in the parsed auto splitter settings.
-    #[cfg(feature = "auto-splitting")]
-    pub fn set_auto_splitter_settings(
+    pub fn auto_splitter_settings_map_store(
         &mut self,
         settings_map: livesplit_auto_splitting::settings::Map,
     ) {
-        let p = self.parsed_auto_splitter_settings_mut();
+        let p = &mut self.parsed_auto_splitter_settings;
         match p {
             None => {
+                if settings_map.is_empty() {
+                    return;
+                }
                 let mut a = AutoSplitterSettings::default();
                 a.set_custom_settings(settings_map);
                 *p = Some(a);

@@ -285,13 +285,6 @@ pub trait TimerQuery {
     fn get_timer(&self) -> Self::Guard<'_>;
 }
 
-#[cfg(feature = "auto-splitting")]
-/// Getting and setting the settings map for auto splitter settings.
-pub trait TimerAutoSplitterSettings {
-    /// Set the settings map in the parsed auto splitter settings.
-    fn set_auto_splitter_settings(&mut self, settings_map: livesplit_auto_splitting::settings::Map);
-}
-
 #[cfg(feature = "std")]
 impl CommandSink for crate::SharedTimer {
     fn start(&self) -> impl Future<Output = Result> + 'static {
@@ -512,31 +505,5 @@ impl<T: TimerQuery + ?Sized> TimerQuery for Arc<T> {
     type Guard<'a> = T::Guard<'a> where T: 'a;
     fn get_timer(&self) -> Self::Guard<'_> {
         TimerQuery::get_timer(&**self)
-    }
-}
-
-#[cfg(feature = "auto-splitting")]
-impl TimerAutoSplitterSettings for crate::timing::Timer {
-    fn set_auto_splitter_settings(
-        &mut self,
-        settings_map: livesplit_auto_splitting::settings::Map,
-    ) {
-        if self.run().parsed_auto_splitter_settings().is_none() && settings_map.is_empty() {
-            return;
-        }
-        self.set_run_auto_splitter_settings(settings_map);
-    }
-}
-
-#[cfg(feature = "auto-splitting")]
-impl TimerAutoSplitterSettings for crate::SharedTimer {
-    fn set_auto_splitter_settings(
-        &mut self,
-        settings_map: livesplit_auto_splitting::settings::Map,
-    ) {
-        let Ok(mut t) = self.write() else {
-            return;
-        };
-        t.set_auto_splitter_settings(settings_map);
     }
 }

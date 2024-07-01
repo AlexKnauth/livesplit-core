@@ -168,13 +168,13 @@ impl Timer {
         &self.run
     }
 
-    /// Set the settings map in the parsed auto splitter settings.
+    /// Stores a settings map into the parsed auto splitter settings.
     #[cfg(feature = "auto-splitting")]
-    pub fn set_run_auto_splitter_settings(
+    pub fn run_auto_splitter_settings_map_store(
         &mut self,
         settings_map: livesplit_auto_splitting::settings::Map,
     ) {
-        self.run.set_auto_splitter_settings(settings_map);
+        self.run.auto_splitter_settings_map_store(settings_map);
     }
 
     /// Marks the Run as unmodified, so that it is known that all the changes

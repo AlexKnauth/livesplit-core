@@ -671,9 +671,7 @@ impl<T: event::CommandSink + TimerQuery + Send + 'static> Runtime<T> {
         let settings_map = timer
             .get_timer()
             .run()
-            .parsed_auto_splitter_settings()
-            .as_ref()
-            .map(|p| p.custom_settings.clone());
+            .auto_splitter_settings_map_load();
         let auto_splitter = compiled_auto_splitter
             .instantiate(Timer(timer), settings_map, None)
             .map_err(|e| Error::LoadFailed { source: e })?;
