@@ -291,20 +291,29 @@ pub enum Command<'a> {
     Ping,
 }
 
+/// The timer state, including phase and split index if applicable.
 #[derive(serde_derive::Serialize)]
 #[serde(tag = "state", content = "index")]
-enum State {
+pub enum State {
+    /// Not running.
     NotRunning,
+    /// Running with split index.
     Running(usize),
+    /// Paused with split index.
     Paused(usize),
+    /// Ended.
     Ended,
 }
 
+/// A response to a command sent to the timer.
 #[derive(serde_derive::Serialize)]
 #[serde(untagged)]
-enum Response {
+pub enum Response {
+    /// No response beyond acknowledgement.
     None,
+    /// String response to name or time commands.
     String(String),
+    /// Timer State response to a GetCurrentState command.
     State(State),
 }
 
