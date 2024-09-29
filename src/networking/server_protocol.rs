@@ -78,10 +78,13 @@ pub fn encode_event(event: Event) -> String {
     serde_json::to_string(&IsEvent { event }).unwrap()
 }
 
-#[derive(serde_derive::Serialize)]
+/// Success or Error to be serialized as a response to a command.
+#[derive(serde_derive::Serialize, serde_derive::Deserialize)]
 #[serde(rename_all = "camelCase")]
-enum CommandResult<T, E> {
+pub enum CommandResult<T, E> {
+    /// Success.
     Success(T),
+    /// Error.
     Error(E),
 }
 
@@ -292,7 +295,7 @@ pub enum Command<'a> {
 }
 
 /// The timer state, including phase and split index if applicable.
-#[derive(serde_derive::Serialize)]
+#[derive(serde_derive::Serialize, serde_derive::Deserialize)]
 #[serde(tag = "state", content = "index")]
 pub enum State {
     /// Not running.
@@ -306,7 +309,7 @@ pub enum State {
 }
 
 /// A response to a command sent to the timer.
-#[derive(serde_derive::Serialize)]
+#[derive(serde_derive::Serialize, serde_derive::Deserialize)]
 #[serde(untagged)]
 pub enum Response {
     /// No response beyond acknowledgement.
@@ -317,15 +320,21 @@ pub enum Response {
     State(State),
 }
 
-#[derive(serde_derive::Serialize)]
+/// Error result of a command.
+#[derive(serde_derive::Serialize, serde_derive::Deserialize)]
 #[serde(tag = "code")]
-enum Error {
+pub enum Error {
+    /// Invalid command.
     InvalidCommand {
+        /// Invalid command error message.
         message: String,
     },
+    /// Invalid index.
     InvalidIndex,
+    /// Timer error.
     #[serde(untagged)]
     Timer {
+        /// Timer error.
         code: event::Error,
     },
 }
