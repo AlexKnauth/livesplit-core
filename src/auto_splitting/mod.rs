@@ -656,7 +656,7 @@ impl<T: event::CommandSink + TimerQuery + Send + 'static> Runtime<T> {
     }
 
     /// Attempts to load a wasm file containing an auto splitter module.
-    pub fn load(&self, path: PathBuf, timer: T) -> Result<(), Error> {
+    pub async fn load(&self, path: PathBuf, timer: T) -> Result<(), Error> {
         let data = fs::read(path).map_err(|e| Error::ReadFileFailed { source: e })?;
 
         let auto_splitter = self
@@ -664,6 +664,7 @@ impl<T: event::CommandSink + TimerQuery + Send + 'static> Runtime<T> {
             .compile(&data)
             .map_err(|e| Error::LoadFailed { source: e })?
             .instantiate(Timer(timer), None, None)
+            .await
             .map_err(|e| Error::LoadFailed { source: e })?;
 
         self.auto_splitter
@@ -836,7 +837,7 @@ async fn run<T: event::CommandSink + TimerQuery + Send>(
                 }
                 Ok(Err(_)) => return,
                 Err(_) => {
-                    let result = auto_splitter.lock().update();
+                    let result = auto_splitter.lock().update().await;
                     match result {
                         Ok(()) => {
                             next_step = next_step

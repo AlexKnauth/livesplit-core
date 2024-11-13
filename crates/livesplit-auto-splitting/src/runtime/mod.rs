@@ -250,12 +250,12 @@ pub struct ExecutionGuard<'runtime, T: Timer> {
 impl<T: Timer> ExecutionGuard<'_, T> {
     /// Runs the exported `update` function of the WebAssembly module a single
     /// time.
-    pub fn update(&mut self) -> Result<()> {
+    pub async fn update(&mut self) -> Result<()> {
         let data = &mut *self.data;
         if data.trapped {
             return Ok(());
         }
-        let result = data.update.call(&mut data.store, ());
+        let result = data.update.call_async(&mut data.store, ()).await;
 
         if result.is_ok() {
             self.settings_widgets
@@ -333,6 +333,7 @@ impl Runtime {
         let mut engine_config = wasmtime::Config::new();
 
         engine_config
+            .async_support(true)
             .cranelift_opt_level(if config.optimize {
                 OptLevel::Speed
             } else {
@@ -364,7 +365,7 @@ impl Runtime {
 
 impl CompiledAutoSplitter {
     /// Instantiates the auto splitter with the given timer.
-    pub fn instantiate<T: Timer>(
+    pub async fn instantiate<T: Timer>(
         &self,
         timer: T,
         settings_map: Option<settings::Map>,
@@ -409,12 +410,12 @@ impl CompiledAutoSplitter {
             .any(|import| import.module() == "wasi_snapshot_preview1");
 
         if uses_wasi {
-            wasmtime_wasi::preview1::add_to_linker_sync(&mut linker, |ctx| &mut ctx.wasi)
+            wasmtime_wasi::preview1::add_to_linker_async(&mut linker, |ctx| &mut ctx.wasi)
                 .map_err(|source| CreationError::Wasi { source })?;
         }
 
         let instance = linker
-            .instantiate(&mut store, &self.module)
+            .instantiate_async(&mut store, &self.module).await
             .map_err(|source| CreationError::ModuleInstantiation { source })?;
 
         let Some(Extern::Memory(mem)) = instance.get_export(&mut store, "memory") else {
