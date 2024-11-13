@@ -556,17 +556,18 @@ use crate::{
     platform::Arc,
     timing::TimerPhase,
 };
+use arc_swap::ArcSwapOption;
 pub use livesplit_auto_splitting::{settings, wasi_path};
 use livesplit_auto_splitting::{
-    AutoSplitter, Config, CreationError, InterruptHandle, LogLevel, Timer as AutoSplitTimer,
-    TimerState,
+    AutoSplitter, Config, CreationError, LogLevel, Timer as AutoSplitTimer, TimerState,
 };
 use snafu::Snafu;
-use std::{fmt, fs, io, path::PathBuf, thread, time::Duration};
-use tokio::{
-    runtime,
-    sync::watch,
-    time::{timeout_at, Instant},
+use std::{
+    fmt, fs, io,
+    path::PathBuf,
+    sync::mpsc::{self, Receiver, RecvTimeoutError, Sender},
+    thread,
+    time::Instant,
 };
 
 /// An error that the [`Runtime`] can return.
@@ -594,16 +595,16 @@ pub enum Error {
 
 /// An auto splitter runtime that allows using an auto splitter provided as a
 /// WebAssembly module to control a timer.
-pub struct Runtime<T> {
-    interrupt_receiver: watch::Receiver<Option<InterruptHandle>>,
-    auto_splitter: watch::Sender<Option<AutoSplitter<Timer<T>>>>,
+pub struct Runtime<T: event::CommandSink + TimerQuery + Send + 'static> {
+    auto_splitter: Arc<ArcSwapOption<AutoSplitter<Timer<T>>>>,
+    changed_sender: Sender<()>,
     runtime: livesplit_auto_splitting::Runtime,
 }
 
-impl<T> Drop for Runtime<T> {
+impl<T: event::CommandSink + TimerQuery + Send + 'static> Drop for Runtime<T> {
     fn drop(&mut self) {
-        if let Some(handle) = &*self.interrupt_receiver.borrow() {
-            handle.interrupt();
+        if let Some(auto_splitter) = &*self.auto_splitter.load() {
+            auto_splitter.interrupt_handle().interrupt();
         }
     }
 }
@@ -618,38 +619,39 @@ impl<T: event::CommandSink + TimerQuery + Send + 'static> Runtime<T> {
     /// Starts the runtime. Doesn't actually load an auto splitter until
     /// [`load`][Runtime::load] is called.
     pub fn new() -> Self {
-        let (sender, receiver) = watch::channel(None);
-        let (interrupt_sender, interrupt_receiver) = watch::channel(None);
-        let (timeout_sender, timeout_receiver) = watch::channel(None);
+        let (changed_sender, changed_receiver) = mpsc::channel();
+        let auto_splitter = Arc::new(ArcSwapOption::from(None));
+        // let (sender, receiver) = watch::channel(None);
+        // let (interrupt_sender, interrupt_receiver) = watch::channel(None);
+        // let (timeout_sender, timeout_receiver) = watch::channel(None);
 
         thread::Builder::new()
             .name("Auto Splitting Runtime".into())
-            .spawn(move || {
-                runtime::Builder::new_current_thread()
-                    .enable_time()
-                    .build()
-                    .unwrap()
-                    .block_on(run(receiver, timeout_sender, interrupt_sender))
-            })
-            .unwrap();
-
-        thread::Builder::new()
-            .name("Auto Splitting Watchdog".into())
             .spawn({
-                let interrupt_receiver = interrupt_receiver.clone();
+                let auto_splitter = auto_splitter.clone();
                 move || {
-                    runtime::Builder::new_current_thread()
-                        .enable_time()
-                        .build()
-                        .unwrap()
-                        .block_on(watchdog(timeout_receiver, interrupt_receiver))
+                    run(auto_splitter, changed_receiver);
                 }
             })
             .unwrap();
 
+        // thread::Builder::new()
+        //     .name("Auto Splitting Watchdog".into())
+        //     .spawn({
+        //         let interrupt_receiver = interrupt_receiver.clone();
+        //         move || {
+        //             runtime::Builder::new_current_thread()
+        //                 .enable_time()
+        //                 .build()
+        //                 .unwrap()
+        //                 .block_on(watchdog(timeout_receiver, interrupt_receiver))
+        //         }
+        //     })
+        //     .unwrap();
+
         Self {
-            interrupt_receiver,
-            auto_splitter: sender,
+            auto_splitter,
+            changed_sender,
             // TODO: unwrap?
             runtime: livesplit_auto_splitting::Runtime::new(Config::default()).unwrap(),
         }
@@ -666,8 +668,10 @@ impl<T: event::CommandSink + TimerQuery + Send + 'static> Runtime<T> {
             .instantiate(Timer(timer), None, None)
             .map_err(|e| Error::LoadFailed { source: e })?;
 
-        self.auto_splitter
-            .send(Some(auto_splitter))
+        self.auto_splitter.store(Some(Arc::new(auto_splitter)));
+
+        self.changed_sender
+            .send(())
             .map_err(|_| Error::ThreadStopped)
     }
 
@@ -675,8 +679,10 @@ impl<T: event::CommandSink + TimerQuery + Send + 'static> Runtime<T> {
     /// there isn't currently an auto splitter loaded, only if the runtime
     /// thread stops unexpectedly.
     pub fn unload(&self) -> Result<(), Error> {
-        self.auto_splitter
-            .send(None)
+        self.auto_splitter.store(None);
+
+        self.changed_sender
+            .send(())
             .map_err(|_| Error::ThreadStopped)
     }
 
@@ -686,12 +692,12 @@ impl<T: event::CommandSink + TimerQuery + Send + 'static> Runtime<T> {
     /// [`set_settings_map`](Self::set_settings_map) or
     /// [`set_settings_map_if_unchanged`](Self::set_settings_map_if_unchanged).
     pub fn settings_map(&self) -> Option<settings::Map> {
-        Some(self.auto_splitter.borrow().as_ref()?.settings_map())
+        Some(self.auto_splitter.load().as_ref()?.settings_map())
     }
 
     /// Unconditionally sets the settings map.
     pub fn set_settings_map(&self, map: settings::Map) -> Option<()> {
-        self.auto_splitter.borrow().as_ref()?.set_settings_map(map);
+        self.auto_splitter.load().as_ref()?.set_settings_map(map);
         Some(())
     }
 
@@ -708,7 +714,7 @@ impl<T: event::CommandSink + TimerQuery + Send + 'static> Runtime<T> {
     ) -> Option<bool> {
         Some(
             self.auto_splitter
-                .borrow()
+                .load()
                 .as_ref()?
                 .set_settings_map_if_unchanged(old, new),
         )
@@ -722,7 +728,7 @@ impl<T: event::CommandSink + TimerQuery + Send + 'static> Runtime<T> {
     /// tick is complete. Any changes the user does to these widgets should be
     /// applied to the settings map and stored back.
     pub fn settings_widgets(&self) -> Option<Arc<Vec<settings::Widget>>> {
-        Some(self.auto_splitter.borrow().as_ref()?.settings_widgets())
+        Some(self.auto_splitter.load().as_ref()?.settings_widgets())
     }
 }
 
@@ -792,99 +798,85 @@ impl<E: event::CommandSink + TimerQuery + Send> AutoSplitTimer for Timer<E> {
     }
 }
 
-async fn run<T: event::CommandSink + TimerQuery + Send>(
-    mut auto_splitter: watch::Receiver<Option<AutoSplitter<Timer<T>>>>,
-    timeout_sender: watch::Sender<Option<Instant>>,
-    interrupt_sender: watch::Sender<Option<InterruptHandle>>,
+fn run<T: event::CommandSink + TimerQuery + Send>(
+    auto_splitter: Arc<ArcSwapOption<AutoSplitter<Timer<T>>>>,
+    changed_receiver: Receiver<()>,
 ) {
     'back_to_not_having_an_auto_splitter: loop {
-        interrupt_sender.send(None).ok();
-        timeout_sender.send(None).ok();
+        while auto_splitter.load().is_none() {
+            if changed_receiver.recv().is_err() {
+                return;
+            }
+        }
 
-        let mut next_step = loop {
-            match auto_splitter.changed().await {
-                Ok(()) => {
-                    if let Some(auto_splitter) = &*auto_splitter.borrow() {
-                        log::info!(target: "Auto Splitter", "Loaded auto splitter");
-                        let next_step = Instant::now();
-                        interrupt_sender
-                            .send(Some(auto_splitter.interrupt_handle()))
-                            .ok();
-                        timeout_sender.send(Some(next_step)).ok();
-                        break next_step;
-                    }
-                }
-                Err(_) => return,
-            };
-        };
+        log::info!(target: "Auto Splitter", "Loaded auto splitter");
+        let mut next_step = Instant::now();
 
         loop {
-            let result = timeout_at(next_step, auto_splitter.changed()).await;
-            let Some(auto_splitter) = &*auto_splitter.borrow() else {
-                log::info!(target: "Auto Splitter", "Unloaded auto splitter");
+            let result =
+                changed_receiver.recv_timeout(next_step.saturating_duration_since(Instant::now()));
+
+            let Some(auto_splitter) = &*auto_splitter.load() else {
+                log::info!(target: "Auto Splitter", "Unloaded");
                 continue 'back_to_not_having_an_auto_splitter;
             };
+            let auto_splitter = &**auto_splitter;
 
             match result {
-                Ok(Ok(())) => {
+                Ok(()) => {
                     log::info!(target: "Auto Splitter", "Replaced auto splitter");
                     next_step = Instant::now();
-                    interrupt_sender
-                        .send(Some(auto_splitter.interrupt_handle()))
-                        .ok();
-                    timeout_sender.send(Some(next_step)).ok();
                 }
-                Ok(Err(_)) => return,
-                Err(_) => {
-                    let result = auto_splitter.lock().update();
-                    match result {
-                        Ok(()) => {
-                            next_step = next_step
-                                .into_std()
-                                .checked_add(auto_splitter.tick_rate())
-                                .map_or(next_step, |t| t.into());
-
-                            timeout_sender.send(Some(next_step)).ok();
-                        }
-                        Err(e) => {
-                            log::error!(target: "Auto Splitter", "Unloaded, because the script trapped: {:?}", e);
-                            continue 'back_to_not_having_an_auto_splitter;
-                        }
-                    }
+                Err(RecvTimeoutError::Disconnected) => return,
+                Err(RecvTimeoutError::Timeout) => {
+                    // Actually the default happy path.
                 }
             }
+
+            // Intentionally not part of the if let to ensure the lock is
+            // released early.
+            let result = auto_splitter.lock().update();
+
+            if let Err(e) = result {
+                log::error!(target: "Auto Splitter", "Unloaded, because the script trapped: {:?}", e);
+                continue 'back_to_not_having_an_auto_splitter;
+            }
+
+            next_step = next_step
+                .checked_add(auto_splitter.tick_rate())
+                .unwrap_or(next_step);
         }
     }
 }
 
-async fn watchdog(
-    mut timeout_receiver: watch::Receiver<Option<Instant>>,
-    interrupt_receiver: watch::Receiver<Option<InterruptHandle>>,
-) {
-    const TIMEOUT: Duration = Duration::from_secs(5);
+// async fn watchdog(
+//     mut timeout_receiver: triple_buffer::Output<Option<Instant>>,
+//     interrupt_receiver: watch::Receiver<Option<InterruptHandle>>,
+// ) {
+//     const TIMEOUT: Duration = Duration::from_secs(5);
 
-    loop {
-        let instant = *timeout_receiver.borrow();
-        match instant {
-            Some(time) => match timeout_at(
-                time.checked_add(TIMEOUT).unwrap_or(time),
-                timeout_receiver.changed(),
-            )
-            .await
-            {
-                Ok(Ok(_)) => {}
-                Ok(Err(_)) => return,
-                Err(_) => {
-                    if let Some(handle) = &*interrupt_receiver.borrow() {
-                        handle.interrupt();
-                    }
-                }
-            },
-            None => {
-                if timeout_receiver.changed().await.is_err() {
-                    return;
-                }
-            }
-        }
-    }
-}
+//     loop {
+//         let instant = timeout_receiver.read();
+//         match instant {
+//             Some(time) => match timeout_at(
+//                 time.checked_add(TIMEOUT).unwrap_or(time),
+//                 timeout_receiver.changed(),
+//             )
+//             .await
+//             {
+//                 Ok(Ok(_)) => {}
+//                 Ok(Err(_)) => return,
+//                 Err(_) => {
+//                     if let Some(handle) = &*interrupt_receiver.borrow() {
+//                         handle.interrupt();
+//                     }
+//                 }
+//             },
+//             None => {
+//                 if timeout_receiver.changed().await.is_err() {
+//                     return;
+//                 }
+//             }
+//         }
+//     }
+// }
