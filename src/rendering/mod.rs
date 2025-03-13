@@ -558,24 +558,46 @@ impl<A: ResourceAllocator> RenderContext<'_, A> {
         value: &str,
         value_label: &mut CachedLabel<A::Label>,
         updates_frequently: bool,
-        [width, height]: [f32; 2],
+        dim: [f32; 2],
         key_color: Color,
         value_color: Color,
         display_two_rows: bool,
     ) {
+        let shadow_color = FillShader::SolidColor([0.0, 0.0, 0.0, 0.5]);
+        let shadow_offset = [0.06, 0.06];
+
+        self.render_numbers_shadow(
+            value,
+            value_label,
+            Layer::from_updates_frequently(updates_frequently),
+            [dim[0] - PADDING, dim[1] + TEXT_ALIGN_BOTTOM],
+            DEFAULT_TEXT_SIZE,
+            shadow_offset,
+            shadow_color
+        );
         let left_of_value_x = self.render_numbers(
             value,
             value_label,
             Layer::from_updates_frequently(updates_frequently),
-            [width - PADDING, height + TEXT_ALIGN_BOTTOM],
+            [dim[0] - PADDING, dim[1] + TEXT_ALIGN_BOTTOM],
             DEFAULT_TEXT_SIZE,
             solid(&value_color),
         );
+
         let end_x = if display_two_rows {
-            width
+            dim[0]
         } else {
             left_of_value_x
         };
+
+        self.render_abbreviated_text_ellipsis(
+            iter::once(key).chain(abbreviations.iter().map(|x| &**x)),
+            key_label,
+            [PADDING + shadow_offset[0], TEXT_ALIGN_TOP + shadow_offset[1]],
+            DEFAULT_TEXT_SIZE,
+            shadow_color,
+            end_x - PADDING - shadow_offset[0], // Adjust end_x to account for shadow
+        );
 
         self.render_abbreviated_text_ellipsis(
             iter::once(key).chain(abbreviations.iter().map(|x| &**x)),
