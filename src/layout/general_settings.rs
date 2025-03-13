@@ -52,6 +52,8 @@ pub struct GeneralSettings {
     pub text_color: Color,
     /// Ignore Mouse While Running and Not In Focus
     pub mouse_pass_through_while_running: bool,
+    /// Draw drop shadow
+    pub drop_shadow: bool,
 }
 
 impl Default for GeneralSettings {
@@ -76,6 +78,7 @@ impl Default for GeneralSettings {
             separators_color: Color::hsla(0.0, 0.0, 1.0, 0.35),
             text_color: Color::hsla(0.0, 0.0, 1.0, 1.0),
             mouse_pass_through_while_running: false,
+            drop_shadow: false,
         }
     }
 }
@@ -181,6 +184,11 @@ impl GeneralSettings {
                 "Ignore Mouse While Running and Not In Focus".into(),
                 self.mouse_pass_through_while_running.into(),
             ),
+            Field::new(
+                "Drop Shadow".into(),
+                "Draws shadow behind timer & splits".into(),
+                self.drop_shadow.into(),
+            ),
         ])
     }
 
@@ -210,6 +218,7 @@ impl GeneralSettings {
             14 => self.separators_color = value.into(),
             15 => self.text_color = value.into(),
             16 => self.mouse_pass_through_while_running = value.into(),
+            17 => self.drop_shadow = value.into(),
             _ => panic!("Unsupported Setting Index"),
         }
     }

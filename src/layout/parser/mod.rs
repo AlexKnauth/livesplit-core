@@ -782,6 +782,9 @@ fn parse_general_settings(layout: &mut Layout, reader: &mut Reader<'_>) -> Resul
         "MousePassThroughWhileRunning" => {
             parse_bool(reader, |b| settings.mouse_pass_through_while_running = b)
         }
+        "DropShadow" => {
+            parse_bool(reader, |b| settings.dropShadow = b)
+        }
         _ => end_tag(reader),
     })?;
 
