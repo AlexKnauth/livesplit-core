@@ -3,6 +3,7 @@ use crate::{
     layout::{LayoutDirection, LayoutState},
     platform::prelude::*,
     rendering::{
+        FillShader,
         consts::{
             vertical_padding, BOTH_PADDINGS, DEFAULT_COMPONENT_HEIGHT, DEFAULT_TEXT_SIZE, PADDING,
             TEXT_ALIGN_BOTTOM, TEXT_ALIGN_TOP, THIN_SEPARATOR_THICKNESS, TWO_ROW_HEIGHT,
@@ -20,6 +21,7 @@ pub struct Cache<L> {
     column_labels: Vec<CachedLabel<L>>,
     column_width_labels: Vec<(f32, CachedLabel<L>)>,
     longest_column_values: Vec<ShortLivedStr>,
+    drop_shadow_enabled: bool
 }
 
 #[derive(Copy, Clone)]
@@ -78,7 +80,11 @@ impl<L> Cache<L> {
             column_labels: Vec::new(),
             column_width_labels: Vec::new(),
             longest_column_values: Vec::new(),
+            drop_shadow_enabled: true
         }
+    }
+    pub fn toggle_drop_shadow(&mut self) {
+        self.drop_shadow_enabled = !self.drop_shadow_enabled;
     }
 }
 
@@ -95,6 +101,8 @@ pub(in crate::rendering) fn render<A: ResourceAllocator>(
     // them out.
 
     cache.longest_column_values.clear();
+    let shadow_color = FillShader::SolidColor([0.0, 0.0, 0.0, 0.5]);
+    let shadow_offset = [0.06, 0.06];
 
     for split in &component.splits {
         if split.columns.len() > cache.longest_column_values.len() {
@@ -267,6 +275,17 @@ pub(in crate::rendering) fn render<A: ResourceAllocator>(
                 .zip(&mut split_cache.columns)
                 .zip(&cache.column_width_labels)
             {
+                if !column.value.is_empty() && cache.drop_shadow_enabled {
+                    left_x = context.render_numbers_shadow(
+                        &column.value,
+                        column_cache,
+                        Layer::from_updates_frequently(column.updates_frequently),
+                        [right_x, split_height + TEXT_ALIGN_BOTTOM],
+                        DEFAULT_TEXT_SIZE,
+                        shadow_offset,
+                        shadow_color
+                    );
+                }
                 if !column.value.is_empty() {
                     left_x = context.render_numbers(
                         &column.value,
@@ -282,6 +301,18 @@ pub(in crate::rendering) fn render<A: ResourceAllocator>(
 
             if display_two_rows {
                 left_x = split_width;
+            }
+            
+            if cache.drop_shadow_enabled {
+                context.render_text_shadow(
+                    &split.name,
+                    &mut split_cache.name,
+                    Layer::Bottom,
+                    [icon_right, TEXT_ALIGN_TOP],
+                    DEFAULT_TEXT_SIZE,
+                    shadow_offset,
+                    shadow_color
+                );
             }
 
             context.render_text_ellipsis(

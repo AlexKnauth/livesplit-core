@@ -787,6 +787,65 @@ impl<A: ResourceAllocator> RenderContext<'_, A> {
 
         x - width
     }
+    
+    fn render_numbers_shadow(
+        &mut self,
+        text: &str,
+        label: &mut CachedLabel<A::Label>,
+        layer: Layer,
+        pos @ [x, _]: Pos,
+        scale: f32,
+        shadow_offset: Pos,
+        shadow_color: FillShader
+    ) -> f32 {
+        let label = label.update(text, &mut self.handles, &mut self.fonts.times.font, None);
+        let width = label.width(scale);
+
+        self.scene.layer_mut(layer).push(Entity::Label(
+            label.share(),
+            shadow_color,
+            font::right_aligned(&self.transform.pre_translate(shadow_offset[0], shadow_offset[1]), pos, scale, width),
+        ));
+
+        x - width
+    }
+
+
+    pub fn render_timer_shadow(
+        &mut self,
+        text: &str,
+        label: &mut CachedLabel<A::Label>,
+        layer: Layer,
+        pos: Pos,
+        scale: f32,
+        shadow_offset: Pos,
+        shadow_color: FillShader,
+    ) {
+        let label = label.update(text, &mut self.handles, &mut self.fonts.timer.font, None);
+        let width = label.width(scale);
+        self.scene.layer_mut(layer).push(Entity::Label(
+            label.share(),
+            shadow_color,
+            font::right_aligned(&self.transform.pre_translate(shadow_offset[0], shadow_offset[1]), pos, scale, width),
+        ));
+    }
+    
+    fn render_text_shadow(
+        &mut self,
+        text: &str,
+        label: &mut CachedLabel<A::Label>,
+        layer: Layer,
+        pos: Pos,
+        scale: f32,
+        shadow_offset: Pos,
+        shadow_color: FillShader,
+    ) {
+        self.scene.layer_mut(layer).push(Entity::Label(
+            label.update(text, &mut self.handles, &mut self.fonts.text.font, None).share(),
+            shadow_color,
+            font::left_aligned(&self.transform.pre_translate(shadow_offset[0], shadow_offset[1]), pos, scale),
+        ));
+    }
 
     fn measure_numbers(
         &mut self,

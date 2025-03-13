@@ -9,6 +9,7 @@ use crate::{
 pub struct Cache<L> {
     time: CachedLabel<L>,
     fraction: CachedLabel<L>,
+    drop_shadow_enabled: bool
 }
 
 impl<L> Cache<L> {
@@ -16,7 +17,11 @@ impl<L> Cache<L> {
         Self {
             time: CachedLabel::new(),
             fraction: CachedLabel::new(),
+            drop_shadow_enabled: true
         }
+    }
+    pub fn toggle_drop_shadow(&mut self) {
+        self.drop_shadow_enabled = !self.drop_shadow_enabled;
     }
 }
 
@@ -31,21 +36,67 @@ pub(in crate::rendering) fn render<A: ResourceAllocator>(
         component.top_color.to_array(),
         component.bottom_color.to_array(),
     );
+    let shadow_color = FillShader::SolidColor([0.0, 0.0, 0.0, 0.5]);
+    let shadow_offset = [0.05, 0.05];
     let render_target = Layer::from_updates_frequently(component.updates_frequently);
-    let x = context.render_timer(
-        &component.fraction,
-        &mut cache.fraction,
-        render_target,
-        [width - PADDING, 0.85 * height],
-        0.7 * height,
-        shader,
-    );
-    context.render_timer(
-        &component.time,
-        &mut cache.time,
-        render_target,
-        [x, 0.85 * height],
-        height,
-        shader,
-    )
+    
+    if cache.drop_shadow_enabled {
+        context.render_timer_shadow(
+            &component.fraction,
+            &mut cache.fraction,
+            render_target,
+            [width - PADDING, 0.85 * height],
+            0.7 * height,
+            shadow_offset,
+            shadow_color,
+        );
+
+        let x = context.render_timer(
+            &component.fraction,
+            &mut cache.fraction,
+            render_target,
+            [width - PADDING, 0.85 * height],
+            0.7 * height,
+            shader,
+        );
+
+        context.render_timer_shadow(
+            &component.time,
+            &mut cache.time,
+            render_target,
+            [x, 0.85 * height],
+            height,
+            shadow_offset,
+            shadow_color,
+        );
+
+        context.render_timer(
+            &component.time,
+            &mut cache.time,
+            render_target,
+            [x, 0.85 * height],
+            height,
+            shader,
+        );
+
+        x
+    }
+    else {
+        let x = context.render_timer(
+            &component.fraction,
+            &mut cache.fraction,
+            render_target,
+            [width - PADDING, 0.85 * height],
+            0.7 * height,
+            shader,
+        );
+        context.render_timer(
+            &component.time,
+            &mut cache.time,
+            render_target,
+            [x, 0.85 * height],
+            height,
+            shader,
+        )
+    }
 }
