@@ -63,6 +63,7 @@ pub(in crate::rendering) fn render<A: ResourceAllocator>(
         context,
         [width, top_height],
         &component.timer,
+        layout_state
     );
 
     if let Some(segment_name) = &component.segment_name {
@@ -89,6 +90,7 @@ pub(in crate::rendering) fn render<A: ResourceAllocator>(
         context,
         [width, bottom_height],
         &component.segment_timer,
+        layout_state
     );
 
     context.translate(0.0, -top_height);

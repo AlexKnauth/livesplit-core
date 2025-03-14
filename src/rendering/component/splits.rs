@@ -270,7 +270,7 @@ pub(in crate::rendering) fn render<A: ResourceAllocator>(
                 .zip(&mut split_cache.columns)
                 .zip(&cache.column_width_labels)
             {
-                if !column.value.is_empty() {
+                if !column.value.is_empty() && layout_state.drop_shadow {
                     context.render_numbers_shadow(
                         &column.value,
                         column_cache,
@@ -289,6 +289,16 @@ pub(in crate::rendering) fn render<A: ResourceAllocator>(
                         solid(&column.visual_color),
                     );
                 }
+                else if !column.value.is_empty() && !layout_state.drop_shadow {
+                    left_x = context.render_numbers(
+                        &column.value,
+                        column_cache,
+                        Layer::from_updates_frequently(column.updates_frequently),
+                        [right_x, split_height + TEXT_ALIGN_BOTTOM],
+                        DEFAULT_TEXT_SIZE,
+                        solid(&column.visual_color),
+                    );
+                }
                 right_x -= max_width + PADDING;
             }
 
@@ -296,15 +306,17 @@ pub(in crate::rendering) fn render<A: ResourceAllocator>(
                 left_x = split_width;
             }
             
-            context.render_text_shadow(
-                &split.name,
-                &mut split_cache.name,
-                Layer::Bottom,
-                [icon_right, TEXT_ALIGN_TOP],
-                DEFAULT_TEXT_SIZE,
-                shadow_offset,
-                shadow_color
-            );
+            if layout_state.drop_shadow {
+                context.render_text_shadow(
+                    &split.name,
+                    &mut split_cache.name,
+                    Layer::Bottom,
+                    [icon_right, TEXT_ALIGN_TOP],
+                    DEFAULT_TEXT_SIZE,
+                    shadow_offset,
+                    shadow_color
+                );
+            }
 
             context.render_text_ellipsis(
                 &split.name,

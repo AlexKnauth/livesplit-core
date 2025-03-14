@@ -1,5 +1,6 @@
 use crate::{
     component::timer::State,
+    layout::LayoutState,
     rendering::{
         consts::PADDING, font::CachedLabel, resource::ResourceAllocator, scene::Layer, FillShader,
         RenderContext,
@@ -25,6 +26,7 @@ pub(in crate::rendering) fn render<A: ResourceAllocator>(
     context: &mut RenderContext<'_, A>,
     [width, height]: [f32; 2],
     component: &State,
+    layout_state: &LayoutState,
 ) -> f32 {
     context.render_background([width, height], &component.background);
     let shader = FillShader::VerticalGradient(
@@ -35,43 +37,65 @@ pub(in crate::rendering) fn render<A: ResourceAllocator>(
     let shadow_offset = [0.05, 0.05];
     let render_target = Layer::from_updates_frequently(component.updates_frequently);
     
-    context.render_timer_shadow(
-        &component.fraction,
-        &mut cache.fraction,
-        render_target,
-        [width - PADDING, 0.85 * height],
-        0.7 * height,
-        shadow_offset,
-        shadow_color,
-    );
+    if layout_state.drop_shadow { 
+        context.render_timer_shadow(
+            &component.fraction,
+            &mut cache.fraction,
+            render_target,
+            [width - PADDING, 0.85 * height],
+            0.7 * height,
+            shadow_offset,
+            shadow_color,
+        );
 
-    let x = context.render_timer(
-        &component.fraction,
-        &mut cache.fraction,
-        render_target,
-        [width - PADDING, 0.85 * height],
-        0.7 * height,
-        shader,
-    );
+        let x = context.render_timer(
+            &component.fraction,
+            &mut cache.fraction,
+            render_target,
+            [width - PADDING, 0.85 * height],
+            0.7 * height,
+            shader,
+        );
 
-    context.render_timer_shadow(
-        &component.time,
-        &mut cache.time,
-        render_target,
-        [x, 0.85 * height],
-        height,
-        shadow_offset,
-        shadow_color,
-    );
+        context.render_timer_shadow(
+            &component.time,
+            &mut cache.time,
+            render_target,
+            [x, 0.85 * height],
+            height,
+            shadow_offset,
+            shadow_color,
+        );
 
-    context.render_timer(
-        &component.time,
-        &mut cache.time,
-        render_target,
-        [x, 0.85 * height],
-        height,
-        shader,
-    );
+        context.render_timer(
+            &component.time,
+            &mut cache.time,
+            render_target,
+            [x, 0.85 * height],
+            height,
+            shader,
+        );
 
-    x
+        x
+    }
+    else {
+        let x = context.render_timer(
+            &component.fraction,
+            &mut cache.fraction,
+            render_target,
+            [width - PADDING, 0.85 * height],
+            0.7 * height,
+            shader,
+        );
+        context.render_timer(
+            &component.time,
+            &mut cache.time,
+            render_target,
+            [x, 0.85 * height],
+            height,
+            shader,
+        );
+
+        x
+    }
 }

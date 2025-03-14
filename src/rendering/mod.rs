@@ -558,54 +558,32 @@ impl<A: ResourceAllocator> RenderContext<'_, A> {
         value: &str,
         value_label: &mut CachedLabel<A::Label>,
         updates_frequently: bool,
-        dim: [f32; 2],
+        [width, height]: [f32; 2],
         key_color: Color,
         value_color: Color,
         display_two_rows: bool,
     ) {
-        let shadow_color = FillShader::SolidColor([0.0, 0.0, 0.0, 0.5]);
-        let shadow_offset = [0.06, 0.06];
-
-        self.render_numbers_shadow(
-            value,
-            value_label,
-            Layer::from_updates_frequently(updates_frequently),
-            [dim[0] - PADDING, dim[1] + TEXT_ALIGN_BOTTOM],
-            DEFAULT_TEXT_SIZE,
-            shadow_offset,
-            shadow_color
-        );
         let left_of_value_x = self.render_numbers(
             value,
             value_label,
             Layer::from_updates_frequently(updates_frequently),
-            [dim[0] - PADDING, dim[1] + TEXT_ALIGN_BOTTOM],
+            [width - PADDING, height + TEXT_ALIGN_BOTTOM],
             DEFAULT_TEXT_SIZE,
             solid(&value_color),
         );
-
         let end_x = if display_two_rows {
-            dim[0]
+            width
         } else {
             left_of_value_x
         };
-
-        self.render_abbreviated_text_ellipsis(
-            iter::once(key).chain(abbreviations.iter().map(|x| &**x)),
-            key_label,
-            [PADDING + shadow_offset[0], TEXT_ALIGN_TOP + shadow_offset[1]],
-            DEFAULT_TEXT_SIZE,
-            shadow_color,
-            end_x - PADDING - shadow_offset[0], // Adjust end_x to account for shadow
-        );
-
+        
         self.render_abbreviated_text_ellipsis(
             iter::once(key).chain(abbreviations.iter().map(|x| &**x)),
             key_label,
             [PADDING, TEXT_ALIGN_TOP],
             DEFAULT_TEXT_SIZE,
             solid(&key_color),
-            end_x - PADDING,
+            end_x - PADDING
         );
     }
 
@@ -808,6 +786,71 @@ impl<A: ResourceAllocator> RenderContext<'_, A> {
         ));
 
         x - width
+    }
+
+    fn render_key_value_component_shadow(
+        &mut self,
+        key: &str,
+        abbreviations: &[Cow<'_, str>],
+        key_label: &mut AbbreviatedLabel<A::Label>,
+        value: &str,
+        value_label: &mut CachedLabel<A::Label>,
+        updates_frequently: bool,
+        [width, height]: [f32; 2],
+        shadow_offset: Pos,
+        key_shadow: FillShader,
+        value_shadow: FillShader,
+        display_two_rows: bool,
+    ) {
+        let left_of_value_x = self.render_numbers_shadow(
+            value,
+            value_label,
+            Layer::from_updates_frequently(updates_frequently),
+            [width - PADDING, height + TEXT_ALIGN_BOTTOM],
+            DEFAULT_TEXT_SIZE,
+            shadow_offset,
+            value_shadow,
+        );
+        let end_x = if display_two_rows {
+            width
+        } else {
+            left_of_value_x
+        };
+        
+        self.render_abbreviated_text_ellipsis_shadow(
+            iter::once(key).chain(abbreviations.iter().map(|x| &**x)),
+            key_label,
+            [PADDING, TEXT_ALIGN_TOP],
+            DEFAULT_TEXT_SIZE,
+            shadow_offset,
+            key_shadow,
+            end_x - PADDING
+        );
+    }
+    
+    fn render_abbreviated_text_ellipsis_shadow<'a>(
+        &mut self,
+        abbreviations: impl IntoIterator<Item = &'a str> + Clone,
+        label: &mut AbbreviatedLabel<A::Label>,
+        pos @ [x, _]: Pos,
+        scale: f32,
+        shadow_offset: Pos,
+        shadow_color: FillShader,
+        max_x: f32,
+    ) -> f32 {
+        let label = label.update(
+            abbreviations.clone(),
+            &mut self.handles,
+            &mut self.fonts.text.font,
+            (max_x - x) / scale,
+        );
+
+        self.scene.bottom_layer_mut().push(Entity::Label(
+            label.share(),
+            shadow_color,
+            font::left_aligned(&self.transform.pre_translate(shadow_offset[0], shadow_offset[1]), pos, scale),
+        ));
+        x + label.width(scale)
     }
     
     fn render_numbers_shadow(
