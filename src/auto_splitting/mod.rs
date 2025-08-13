@@ -817,6 +817,14 @@ impl<E: event::CommandSink + TimerQuery + Send> AutoSplitTimer for Timer<E> {
         self.0.get_timer().current_split_index()
     }
 
+    fn current_attempt_segments_splitted(&self) -> Vec<bool> {
+        let t = self.0.get_timer();
+        let Some(i) = t.current_split_index() else {
+            return Vec::new();
+        };
+        t.run().segments().iter().take(i).map(|s| s.split_time().real_time.is_some()).collect()
+    }
+
     fn set_game_time(&mut self, time: time::Duration) {
         drop(self.0.set_game_time(time.into()));
     }

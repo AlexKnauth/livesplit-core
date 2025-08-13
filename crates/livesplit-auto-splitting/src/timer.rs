@@ -51,6 +51,8 @@ pub trait Timer: Send {
     /// finished, but has not been reset. So you need to be careful when using
     /// this value for indexing.
     fn current_split_index(&self) -> Option<usize>;
+    /// Lists segments splitted or skipped in the current attempt.
+    fn current_attempt_segments_splitted(&self) -> Vec<bool>;
     /// Sets the game time.
     fn set_game_time(&mut self, time: time::Duration);
     /// Pauses the game time. This does not pause the timer, only the automatic

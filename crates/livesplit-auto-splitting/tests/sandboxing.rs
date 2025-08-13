@@ -22,6 +22,9 @@ impl Timer for DummyTimer {
     fn current_split_index(&self) -> Option<usize> {
         None
     }
+    fn current_attempt_segments_splitted(&self) -> Vec<bool> {
+        Vec::new()
+    }
     fn set_game_time(&mut self, _time: time::Duration) {}
     fn pause_game_time(&mut self) {}
     fn resume_game_time(&mut self) {}
