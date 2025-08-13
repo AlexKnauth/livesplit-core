@@ -45,6 +45,8 @@ pub trait Timer: Send {
     fn undo_split(&mut self);
     /// Resets the timer.
     fn reset(&mut self);
+    /// Lists segments splitted or skipped in the current attempt.
+    fn current_attempt_segments_splitted(&self) -> Vec<bool>;
     /// Sets the game time.
     fn set_game_time(&mut self, time: time::Duration);
     /// Pauses the game time. This does not pause the timer, only the automatic

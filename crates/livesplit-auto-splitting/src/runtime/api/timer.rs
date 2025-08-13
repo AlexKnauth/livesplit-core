@@ -1,7 +1,8 @@
 use anyhow::Result;
+use slotmap::Key;
 use wasmtime::{Caller, Linker};
 
-use crate::{runtime::Context, CreationError, Timer};
+use crate::{runtime::Context, settings, CreationError, Timer};
 
 use super::{get_str, memory_and_context};
 
@@ -68,6 +69,22 @@ pub fn bind<T: Timer>(linker: &mut Linker<Context<T>>) -> Result<(), CreationErr
         .map_err(|source| CreationError::LinkFunction {
             source,
             name: "timer_reset",
+        })?
+        .func_wrap("env", "timer_current_attempt_segments_splitted", {
+            |mut caller: Caller<'_, Context<T>>| {
+                let ctx = caller.data_mut();
+
+                let mut settings_list = settings::List::new();
+                for b in ctx.timer.current_attempt_segments_splitted() {
+                    settings_list.push(settings::Value::Bool(b));
+                }
+
+                Ok(ctx.settings_lists.insert(settings_list).data().as_ffi())
+            }
+        })
+        .map_err(|source| CreationError::LinkFunction {
+            source,
+            name: "timer_current_attempt_segments_splitted",
         })?
         .func_wrap("env", "timer_set_variable", {
             |mut caller: Caller<'_, Context<T>>,
