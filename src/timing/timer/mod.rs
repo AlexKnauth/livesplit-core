@@ -1,3 +1,5 @@
+#[cfg(feature = "auto-splitting")]
+use crate::StoredAutoSplitterSettings;
 use crate::{
     AtomicDateTime, Run, Segment, Time, TimeSpan, TimeStamp,
     TimerPhase::{self, *},
@@ -173,6 +175,16 @@ impl Timer {
     #[inline]
     pub const fn mark_as_unmodified(&mut self) {
         self.run.mark_as_unmodified();
+    }
+
+    /// Stores the structured ASR-compatible Auto Splitter Settings inside the
+    /// active run. This is intentionally a timer-level API so frontends can
+    /// update the splits-file-backed auto splitter state without replacing the
+    /// whole run or disturbing an in-progress attempt.
+    #[cfg(feature = "auto-splitting")]
+    #[inline]
+    pub fn set_stored_auto_splitter_settings(&mut self, settings: &StoredAutoSplitterSettings) {
+        self.run.set_stored_auto_splitter_settings(settings);
     }
 
     /// Returns the current Timer Phase.

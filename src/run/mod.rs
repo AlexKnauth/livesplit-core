@@ -24,6 +24,8 @@ pub mod saver;
 mod segment;
 mod segment_groups;
 mod segment_history;
+#[cfg(feature = "auto-splitting")]
+mod stored_auto_splitter_settings;
 
 #[cfg(test)]
 mod tests;
@@ -39,6 +41,10 @@ pub use segment_groups::{
     SegmentGroups, SegmentGroupsIter,
 };
 pub use segment_history::SegmentHistory;
+#[cfg(feature = "auto-splitting")]
+pub use stored_auto_splitter_settings::{
+    StoredAutoSplitterSettings, StoredAutoSplitterSettingsParseError,
+};
 
 use crate::{
     AtomicDateTime, Time, TimeSpan, TimingMethod,
@@ -393,6 +399,36 @@ impl Run {
     #[inline]
     pub const fn auto_splitter_settings_mut(&mut self) -> &mut String {
         &mut self.auto_splitter_settings
+    }
+
+    /// Parses the stored Auto Splitter Settings into the ASR-compatible
+    /// structure used by the LiveSplit desktop component. This is the
+    /// structured counterpart to the raw XML accessors above and is intended
+    /// for tools that want to persist the selected auto splitter path together
+    /// with its custom settings inside the splits file itself.
+    #[cfg(feature = "auto-splitting")]
+    #[inline]
+    pub fn stored_auto_splitter_settings(
+        &self,
+    ) -> Result<StoredAutoSplitterSettings, StoredAutoSplitterSettingsParseError> {
+        StoredAutoSplitterSettings::parse(self.auto_splitter_settings())
+    }
+
+    /// Stores the ASR-compatible Auto Splitter Settings into the raw XML field
+    /// that is serialized as `<AutoSplitterSettings>...</AutoSplitterSettings>`
+    /// in LiveSplit splits files.
+    ///
+    /// The run is marked as modified when the serialized representation
+    /// changes, because these settings now materially belong to the splits file
+    /// and should therefore participate in normal save prompts.
+    #[cfg(feature = "auto-splitting")]
+    #[inline]
+    pub fn set_stored_auto_splitter_settings(&mut self, settings: &StoredAutoSplitterSettings) {
+        let next_settings = settings.to_xml_string();
+        if self.auto_splitter_settings != next_settings {
+            self.auto_splitter_settings = next_settings;
+            self.mark_as_modified();
+        }
     }
 
     /// Accesses the [`LinkedLayout`] of this `Run`. If a
