@@ -387,15 +387,28 @@ mod tests {
     #[test]
     fn parses_and_serializes_reference_shape() {
         let xml = r#"
-            <Version>1.0</Version>
-            <ScriptPath>C:\Auto Splitters\Game.wasm</ScriptPath>
+            <Version>
+                1.0
+            </Version>
+            <ScriptPath>
+                C:\Auto Splitters\Game.wasm
+            </ScriptPath>
             <CustomSettings>
                 <Setting id="outer" type="map">
-                    <Setting id="enabled" type="bool">True</Setting>
-                    <Setting id="threshold" type="f64">2.5</Setting>
+                    <Setting id="enabled" type="bool">
+                        True
+                    </Setting>
+                    <Setting id="altered" type="bool">
+                        False
+                    </Setting>
+                    <Setting id="threshold" type="f64">
+                        2.5
+                    </Setting>
                     <Setting id="choices" type="list">
                         <Setting type="string" value="first"/>
-                        <Setting type="i64">7</Setting>
+                        <Setting type="i64">
+                            7
+                        </Setting>
                     </Setting>
                 </Setting>
             </CustomSettings>
@@ -413,6 +426,66 @@ mod tests {
             AutoSplitterSettingValue::Map(map)
                 if matches!(map.get("enabled"), Some(AutoSplitterSettingValue::Bool(true)))
         ));
+
+        assert_eq!(
+            outer
+                .as_map()
+                .expect("outer should be a Map")
+                .get("enabled")
+                .expect("enabled should be present")
+                .to_bool()
+                .expect("enabled should be a bool"),
+            true,
+        );
+        assert_eq!(
+            outer
+                .as_map()
+                .expect("outer should be a Map")
+                .get("altered")
+                .expect("altered should be present")
+                .to_bool()
+                .expect("altered should be a bool"),
+            false,
+        );
+        assert_eq!(
+            outer
+                .as_map()
+                .expect("outer should be a Map")
+                .get("threshold")
+                .expect("threshold should be present")
+                .to_f64()
+                .expect("threshold should be an f64"),
+            2.5,
+        );
+        assert_eq!(
+            outer
+                .as_map()
+                .expect("outer should be a Map")
+                .get("choices")
+                .expect("choices should be present")
+                .as_list()
+                .expect("choices should be a list")
+                .get(0)
+                .expect("choices[0] should be present")
+                .as_string()
+                .expect("choices[0] should be a string")
+                .as_ref(),
+            "first",
+        );
+        assert_eq!(
+            outer
+                .as_map()
+                .expect("outer should be a Map")
+                .get("choices")
+                .expect("choices should be present")
+                .as_list()
+                .expect("choices should be a list")
+                .get(1)
+                .expect("choices[1] should be present")
+                .to_i64()
+                .expect("choices[1] should be an i64"),
+            7,
+        );
 
         assert_eq!(
             StoredAutoSplitterSettings::parse(&parsed.to_xml_string()).unwrap(),
