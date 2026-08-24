@@ -41,8 +41,8 @@ pub extern "C" fn AutoSplittingRuntime_load_from_timer(
 
 /// Stores the loaded auto splitter's path and settings in the timer's run.
 #[unsafe(no_mangle)]
-pub extern "C" fn AutoSplittingRuntime_store_settings(this: &AutoSplittingRuntime) {
-    this.store_settings();
+pub extern "C" fn AutoSplittingRuntime_store_settings(this: &AutoSplittingRuntime, use_local_auto_splitter: bool) {
+    this.store_settings(use_local_auto_splitter);
 }
 
 /// Attempts to unload the auto splitter. Returns true if successful.

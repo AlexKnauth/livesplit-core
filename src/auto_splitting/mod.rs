@@ -809,16 +809,18 @@ impl<T: event::CommandSink + TimerQuery + Send + Sync + 'static> Runtime<T> {
     /// Frontends should call this before saving splits and whenever they want
     /// the active run to reflect runtime-side setting changes. If no auto
     /// splitter is loaded, any previously stored path and settings are cleared.
-    pub fn store_settings(&self) {
+    pub fn store_settings(&self, use_local_auto_splitter: bool) {
         let Some(timer) = self.timer.load_full() else {
             return;
         };
 
         let mut stored_settings = StoredAutoSplitterSettings::new();
-        stored_settings.set_script_path(
-            self.loaded_path()
-                .map(|path| path.to_string_lossy().into_owned()),
-        );
+        if use_local_auto_splitter {
+            stored_settings.set_script_path(
+                self.loaded_path()
+                    .map(|path| path.to_string_lossy().into_owned()),
+            );
+        }
 
         if let Some(settings_map) = self.settings_map().filter(|map| !map.is_empty()) {
             stored_settings.set_settings_map(settings_map);
@@ -1018,7 +1020,7 @@ mod tests {
         let runtime = Runtime::new();
 
         assert_eq!(runtime.load(timer.clone()).unwrap(), None);
-        runtime.store_settings();
+        runtime.store_settings(true);
 
         assert!(
             timer
