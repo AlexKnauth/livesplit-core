@@ -67,6 +67,10 @@ impl StoredAutoSplitterSettings {
     const fn to_xml_string(&self) -> String {
         String::new()
     }
+
+    const fn is_legacy_raw_xml(&self) -> bool {
+        false
+    }
 }
 
 use crate::{
@@ -446,6 +450,10 @@ impl Run {
     /// and should therefore participate in normal save prompts.
     #[inline]
     pub fn set_stored_auto_splitter_settings(&mut self, settings: &StoredAutoSplitterSettings) {
+        if !self.auto_splitter_settings.is_empty() && settings.is_legacy_raw_xml() {
+            return;
+        }
+
         let next_settings = settings.to_xml_string();
         if self.auto_splitter_settings != next_settings {
             self.auto_splitter_settings = next_settings;

@@ -88,10 +88,16 @@ impl StoredAutoSplitterSettings {
         self.script_path.is_none() && self.settings_map.is_empty()
     }
 
+    /// Returns whether it has legacy_raw_xml
+    pub fn is_legacy_raw_xml(&self) -> bool {
+        self.settings_map.get("legacy_raw_xml").is_some()
+    }
+
     /// Parses the XML contents stored inside a LiveSplit
     /// `<AutoSplitterSettings>` element.
     pub fn parse(source: &str) -> Result<Self, StoredAutoSplitterSettingsParseError> {
-        if source.trim().is_empty() {
+        let source = source.trim();
+        if source.is_empty() {
             return Ok(Self::new());
         }
 
@@ -101,21 +107,31 @@ impl StoredAutoSplitterSettings {
         // changing the lossless raw-XML behavior of the normal splits parser.
         let wrapped = format!("<AutoSplitterSettings>{source}</AutoSplitterSettings>");
         let mut reader = Reader::new(&wrapped);
+        let mut any_parsed = false;
         let mut settings = Self::new();
 
         parse_base(&mut reader, "AutoSplitterSettings", |reader, _| {
             parse_children(reader, |reader, tag, _| match tag.name() {
                 "Version" => end_tag::<StoredAutoSplitterSettingsParseError>(reader),
                 "ScriptPath" => text(reader, |path| {
+                    any_parsed = true;
                     settings.script_path = Some(path.into_owned())
                 }),
                 "CustomSettings" => {
+                    any_parsed = true;
                     settings.settings_map = parse_settings_map(reader)?;
                     Ok(())
                 }
                 _ => end_tag::<StoredAutoSplitterSettingsParseError>(reader),
             })
         })?;
+
+        if !any_parsed {
+            settings.settings_map.insert(
+                "legacy_raw_xml".into(),
+                AutoSplitterSettingValue::String(source.into()),
+            );
+        }
 
         Ok(settings)
     }
@@ -441,5 +457,29 @@ mod tests {
             StoredAutoSplitterSettings::parse(&parsed.to_xml_string()).unwrap(),
             parsed
         );
+    }
+
+    #[test]
+    fn parse_legacy_raw_xml() {
+        let xml = r#"
+            <Ordered>True</Ordered>
+            <AutosplitEndRuns>True</AutosplitEndRuns>
+            <AutosplitStartRuns></AutosplitStartRuns>
+            <Splits>
+                <Split>VengefulSpirit</Split>
+                <Split>EnterGreenpath</Split>
+                <Split>MothwingCloak</Split>
+                <Split>Aluba</Split>
+            </Splits>
+        "#;
+
+        let parsed = StoredAutoSplitterSettings::parse(xml).unwrap();
+        assert_eq!(parsed.script_path(), None);
+        assert_eq!(parsed.settings_map.len(), 1);
+        assert_eq!(
+            parsed.settings_map.get("legacy_raw_xml"),
+            Some(&AutoSplitterSettingValue::String(xml.trim().into()))
+        );
+        assert_eq!(parsed.is_legacy_raw_xml(), true);
     }
 }
